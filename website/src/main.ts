@@ -4,7 +4,10 @@ import { AnimatedPathLayer } from './animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import { kdTree } from 'kd-tree-javascript';
-import throttle from 'lodash.throttle' import { getLines } from './getLines.ts'; function haversineDistance(coords1: { RAICRS: number, DEICRS: number }, coords2: { RAICRS: number, DEICRS: number }) {
+import throttle from 'lodash.throttle';
+import { getLines } from './getLines.ts'; 
+
+function haversineDistance(coords1: { RAICRS: number, DEICRS: number }, coords2: { RAICRS: number, DEICRS: number }) {
   function toRad(x: number) {
     return x * Math.PI / 180;
   }
