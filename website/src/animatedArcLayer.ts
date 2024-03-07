@@ -1,35 +1,25 @@
 import type { DefaultProps } from "@deck.gl/core/typed";
-import { ArcLayer, type ArcLayerProps } from "@deck.gl/layers/typed";
-import GL from '@luma.gl/constants';
+import { PathLayer, type PathLayerProps } from "@deck.gl/layers/typed";
 
-type ExtendedArcLayerProps<DataT> = ArcLayerProps<DataT> & {
-    /**
-     * Serves as a multiplier for the arc length.
-     * @default 1
-     */
+type ExtendedPathLayerProps<DataT> = PathLayerProps<DataT> & {
     coef?: number;
 };
 
-const defaultProps: DefaultProps<ExtendedArcLayerProps<unknown>> = {
-    ...ArcLayer.defaultProps,
+const defaultProps: DefaultProps<ExtendedPathLayerProps<unknown>> = {
+    ...PathLayer.defaultProps,
     coef: { type: "number", value: 1 },
 };
     
-/*
- * taken from https://github.com/visgl/deck.gl/discussions/2531
- * and https://github.com/visgl/deck.gl/blob/8.9-release/examples/website/mask-extension/animated-arc-layer.js
- */
-export class AnimatedArcLayer<DataT> extends ArcLayer<DataT, ExtendedArcLayerProps<DataT>> {
+export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayerProps<DataT>> {
   initializeState() {
     super.initializeState();
     this.getAttributeManager()?.addInstanced({
-      instanceLineIndex: {
+      instancePathIndex: {
         size: 1,
         update: (attribute) => {
-          const { data } = this.props;
           const { value } = attribute;
-          if (value !== null && Array.isArray(data)) {
-            for (let i = 0; i < data.length; i++) {
+          if (value !== null) {
+            for (let i = 0; i < attribute.numInstances; i++) {
               value[i] = i;
             }
           }
@@ -42,7 +32,7 @@ export class AnimatedArcLayer<DataT> extends ArcLayer<DataT, ExtendedArcLayerPro
         const shaders = super.getShaders(); // get the original shaders
         shaders.inject = {
             "vs:#decl": `
-            attribute float instanceLineIndex;
+            attribute float instancePathIndex;
             uniform float coef;
             varying float adjustedCoef;
             `,
@@ -50,18 +40,18 @@ export class AnimatedArcLayer<DataT> extends ArcLayer<DataT, ExtendedArcLayerPro
             varying float adjustedCoef;
             `,
             "vs:#main-end": `
-            adjustedCoef = clamp(coef - instanceLineIndex, 0.0, 1.0);
-            if (adjustedCoef == 0.0 || geometry.uv.x > adjustedCoef) {
-                isValid = 0.0;
-            }
+            adjustedCoef = clamp(coef - instancePathIndex, 0.0, 1.0);
             `,
             "fs:DECKGL_FILTER_COLOR": `
+            if (adjustedCoef == 0.0) {
+              discard;
+            }
             float lowerBound = 0.0;
             if (adjustedCoef > 0.05) {
                 lowerBound = adjustedCoef - 0.05;
             }
             if (adjustedCoef != 1.0 ) {
-                color.a = 1.0 - smoothstep(lowerBound, adjustedCoef, geometry.uv.x);
+                color.a = 1.0 - smoothstep(lowerBound, adjustedCoef, geometry.uv.y);
             }
             `,
         };
@@ -78,6 +68,6 @@ export class AnimatedArcLayer<DataT> extends ArcLayer<DataT, ExtendedArcLayerPro
     }
 }
 
-AnimatedArcLayer.layerName = "AnimatedArcLayer";
+AnimatedPathLayer.layerName = "AnimatedPathLayer";
 // @ts-ignore
-AnimatedArcLayer.defaultProps = defaultProps;
+AnimatedPathLayer.defaultProps = defaultProps;

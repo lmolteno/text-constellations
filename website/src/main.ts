@@ -1,16 +1,16 @@
 import { Deck } from '@deck.gl/core/typed';
-import { ScatterplotLayer, SolidPolygonLayer } from '@deck.gl/layers/typed';
-import { AnimatedArcLayer } from './animatedArcLayer.ts';
+import { ScatterplotLayer, LineLayer, PathLayer, SolidPolygonLayer } from '@deck.gl/layers/typed';
+import { AnimatedPathLayer } from './animatedArcLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle'
 
-const L = [[0, 1], [0, 0], [1, 0]];
-const I = [[0, 1], [0, 0]];
-const N = [[0, 0], [0, 1], [1, 0], [1, 1]];
-const U = [ [0, 1], [0,0], [1,0], [1,1] ];
-const S = [ [1,1], [0,0.7], [1, 0.3], [0.5, 0], [0, 0.1] ];
+// const L = [[0, 1], [0, 0], [1, 0]];
+// const I = [[0, 1], [0, 0]];
+// const N = [[0, 0], [0, 1], [1, 0], [1, 1]];
+// const U = [ [0, 1], [0,0], [1,0], [1,1] ];
+// const S = [ [1,1], [0,0.7], [1, 0.3], [0.5, 0], [0, 0.1] ];
 
 type Coord = [number, number];
 interface Line { from: Coord, to: Coord };
@@ -54,7 +54,7 @@ const INITIAL_VIEW_STATE = {
 
 const view = new GlobeView({id: 'globe', resolution: 1 });
 let data: HipparcosEntry[] = [];
-let backgroundLayer = new SolidPolygonLayer({
+const backgroundLayer = new SolidPolygonLayer({
   id: 'background',
   data: [
     [[-180, 90], [0, 90], [180, 90], [180, -90], [0, -90], [-180, -90]]
@@ -127,15 +127,17 @@ fetch('/hipparcos.json')
       const selectedStarLayer = new ScatterplotLayer<HipparcosEntry>({ 
         id: 'selected-star',
         data: nearestStar ? [nearestStar] : [], 
-        getFillColor: [255, 0, 0, 255],
-        getRadius: 20,
+        getFillColor: [212, 121, 203, 255],
+        getRadius: 10,
         radiusUnits: 'pixels',
+        stroked: false,
         getPosition: d => [d.RAICRS, -d.DEICRS]
       });
 
-      let lines: Line[] = [];
+      let lines: { path: Coord[] }[] = [];
       let usedHips = [nearestStar.HIP];
       let currentStar = nearestStar;
+      let line = { path: [[currentStar.coords[0], -currentStar.coords[1]] as Coord] };
       for (let i = 0; i < 50; i++) {
         let queryQuantity = 2;
         let query = getNearest(currentStar, queryQuantity);
@@ -149,39 +151,42 @@ fetch('/hipparcos.json')
         }
         const [newStar, dist] = res;
         usedHips.push(newStar.HIP);
-        lines.push({ from: currentStar.coords, to: newStar.coords });
-
+        line.path.push([newStar.coords[0], -newStar.coords[1]] as Coord);
         currentStar = newStar;
       }
+      lines = [line]
+      let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
 
       let progress = 0;
       intervalId = setInterval(() => {
         progress += 0.5;
-        if (intervalId && (progress >= lines.length)) {
+        if (intervalId && (progress >= totalPoints * 3)) {
           console.log('cancelling', progress)
           clearInterval(intervalId);
           return;
         }
-        deck.setProps({
-          layers: [backgroundLayer, selectedStarLayer, 
-            new AnimatedArcLayer({ 
+        const lineLayer = new AnimatedPathLayer({ 
               id: 'selected-star-line',
               data: lines, 
-              greatCircle: true,
-              getWidth: 3,
+              getWidth: 8,
+              jointRounded: true,
+              capRounded: true,
               widthUnits: 'pixels',
-              getSourceColor: [0, 255, 0, 255],
-              getTargetColor: [0, 255, 0, 255],
-              getSourcePosition: d => [d.from[0], -d.from[1]],
-              getTargetPosition: d => [d.to[0], -d.to[1]],
-              coef: progress
-            }),
+              getColor: [129, 100, 222, 200],
+              coef: progress,
+            });
+        deck.setProps({
+          layers: [
+            backgroundLayer, 
+            lineLayer,
+            selectedStarLayer, 
             starLayer
           ]
         });
        }, 10)
     }, 50);
 
+    drawName(INITIAL_VIEW_STATE);
     deck.setProps({
       onViewStateChange: (vs) => {
         if ('zoom' in vs.viewState) {
