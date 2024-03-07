@@ -1,19 +1,11 @@
 import { Deck } from '@deck.gl/core/typed';
-import { ScatterplotLayer, LineLayer, PathLayer, SolidPolygonLayer } from '@deck.gl/layers/typed';
+import { ScatterplotLayer, SolidPolygonLayer, PathLayer } from '@deck.gl/layers/typed';
 import { AnimatedPathLayer } from './animatedArcLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle'
-
-// const L = [[0, 1], [0, 0], [1, 0]];
-// const I = [[0, 1], [0, 0]];
-// const N = [[0, 0], [0, 1], [1, 0], [1, 1]];
-// const U = [ [0, 1], [0,0], [1,0], [1,1] ];
-// const S = [ [1,1], [0,0.7], [1, 0.3], [0.5, 0], [0, 0.1] ];
-
-type Coord = [number, number];
-interface Line { from: Coord, to: Coord };
+import { getLines } from './getLines.ts';
 
 function haversineDistance(coords1: { RAICRS: number, DEICRS: number }, coords2: { RAICRS: number, DEICRS: number }) {
   function toRad(x: number) {
@@ -36,15 +28,6 @@ function haversineDistance(coords1: { RAICRS: number, DEICRS: number }, coords2:
   var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return c;
 }
-
-interface HipparcosEntry {
-  HIP: number
-  DEICRS: number
-  RAICRS: number
-  Vmag: number
-  coords: Coord
-}
-
 
 const INITIAL_VIEW_STATE = {
   latitude: 0,
@@ -134,46 +117,26 @@ fetch('/hipparcos.json')
         getPosition: d => [d.RAICRS, -d.DEICRS]
       });
 
-      let lines: { path: Coord[] }[] = [];
-      let usedHips = [nearestStar.HIP];
-      let currentStar = nearestStar;
-      let line = { path: [[currentStar.coords[0], -currentStar.coords[1]] as Coord] };
-      for (let i = 0; i < 50; i++) {
-        let queryQuantity = 2;
-        let query = getNearest(currentStar, queryQuantity);
-        while (query.every(([star, _]) => usedHips.includes(star.HIP)) && queryQuantity < 10) {
-          queryQuantity++;
-          query = getNearest(currentStar, queryQuantity);
-        }
-        const res = query.find(([star, _]) => !usedHips.includes(star.HIP));
-        if (!res) {
-          break;
-        }
-        const [newStar, dist] = res;
-        usedHips.push(newStar.HIP);
-        line.path.push([newStar.coords[0], -newStar.coords[1]] as Coord);
-        currentStar = newStar;
-      }
-      lines = [line]
+      let lines = getLines(data, getNearest, vpObj, vs.zoom)
       let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
 
       let progress = 0;
-      intervalId = setInterval(() => {
+      intervalId = +setInterval(() => {
         progress += 0.5;
         if (intervalId && (progress >= totalPoints * 3)) {
           console.log('cancelling', progress)
           clearInterval(intervalId);
           return;
         }
-        const lineLayer = new AnimatedPathLayer({ 
+        const lineLayer = new PathLayer({ 
               id: 'selected-star-line',
               data: lines, 
-              getWidth: 8,
+              getWidth: 6,
               jointRounded: true,
               capRounded: true,
               widthUnits: 'pixels',
-              getColor: [129, 100, 222, 200],
-              coef: progress,
+              getColor: [255, 255, 255, 200],
+              coef: totalPoints,
             });
         deck.setProps({
           layers: [
@@ -197,3 +160,4 @@ fetch('/hipparcos.json')
       layers: [backgroundLayer, starLayer],
     })
   });
+
