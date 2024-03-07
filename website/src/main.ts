@@ -1,6 +1,6 @@
 import { Deck } from '@deck.gl/core/typed';
 import { ScatterplotLayer, SolidPolygonLayer, PathLayer } from '@deck.gl/layers/typed';
-import { AnimatedPathLayer } from './animatedArcLayer.ts';
+import { AnimatedPathLayer } from './animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import { kdTree } from 'kd-tree-javascript';
@@ -122,13 +122,13 @@ fetch('/hipparcos.json')
 
       let progress = 0;
       intervalId = +setInterval(() => {
-        progress += 0.5;
-        if (intervalId && (progress >= totalPoints * 3)) {
+        progress += 1;
+        if (intervalId && (progress >= totalPoints * 3 * 4)) {
           console.log('cancelling', progress)
           clearInterval(intervalId);
           return;
         }
-        const lineLayer = new PathLayer({ 
+        const lineLayer = new AnimatedPathLayer({ 
               id: 'selected-star-line',
               data: lines, 
               getWidth: 6,
@@ -136,7 +136,7 @@ fetch('/hipparcos.json')
               capRounded: true,
               widthUnits: 'pixels',
               getColor: [255, 255, 255, 200],
-              coef: totalPoints,
+              coef: progress,
             });
         deck.setProps({
           layers: [
