@@ -122,7 +122,7 @@ fetch('/hipparcos.json')
 
       let progress = 0;
       intervalId = +setInterval(() => {
-        progress += 1;
+        progress += 2;
         if (intervalId && (progress >= totalPoints * 3 * 4)) {
           console.log('cancelling', progress)
           clearInterval(intervalId);
