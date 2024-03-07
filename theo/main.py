@@ -127,66 +127,79 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction, debug=Fals
 
    
 
-    degrees_to_check = [20, 0, -20]
+    degrees_to_check = [12, 0, -12]
     directions = [rotate_point(direction, angle) for angle in degrees_to_check]
+    start_points = [[start_x + d[0] * space_between_letters, start_y + d[1] * space_between_letters] \
+                    for  d in directions]
 
-    cur_direction = directions[1]
+    def get_best_constellation_in(cur_direction, cur_start_point):
+        if debug:
+            # plot ideal
+            ax = plot_my_stars(canvas)
+            ax.plot(start_x, start_y, marker='x', c='r')
+            plot_letter_angle(letter, ax, cur_start_point, cur_direction)
 
-    # move forward for kerning
-    cur_start_x, cur_start_y = start_x + cur_direction[0] * space_between_letters, \
-                        start_y + cur_direction[1] * space_between_letters
-    cur_start_point = [cur_start_x, cur_start_y]
- 
+            # plot circles around ideal points
+            for node in convert_letter_to_sky(letter, cur_start_point, cur_direction):
+                x,y=node
+                circle = plt.Circle((x, y), okay_radius, alpha=0.2)
+                ax.add_patch(circle)
+
+        chosen_stars = []
+        chosen_stars_distances = []
+
+        # find the brightest star in the circle
+        for x,y in convert_letter_to_sky(letter, cur_start_point, cur_direction):
+            query_result = lookup.query_ball_point([x, y], okay_radius)
+
+            if len(query_result)==0: # take the closest star as the only option
+                _, nearest_point = lookup.query([x, y])
+                query_result=[nearest_point]
+
+            # find all the distances from that point
+            near_stars = [canvas[i] for i in query_result]
+            magnitudes = [star.mag for star in near_stars]
+            distances = [calc_distance(Point(x,y,0), star) for star in near_stars]
+            chosen_star_idx=np.argmax(magnitudes)
+
+            # take the maximum magnitude
+            chosen_star = canvas[query_result[chosen_star_idx]]
+            distance = distances[chosen_star_idx]
+            chosen_stars.append(chosen_star)
+            chosen_stars_distances.append(distance)
+
+            if debug: # plot brightest star within radius
+                ax.plot(chosen_star.x, chosen_star.y, c='r', marker='o')
+        return chosen_stars, chosen_stars_distances
+    
+    def evaluate_constellation(constellation):
+        """returns a badness score for the constellation (sum of radius*magnitudes)"""
+        stars, distances = constellation
+        magnitudes = [s.mag for s in stars]
+        return np.sum(np.multiply(distances, magnitudes))
+
+    constelation_options=[get_best_constellation_in(d,spt) for d, spt in zip(directions, start_points)]
+    badness_metric = [evaluate_constellation(c) for c in constelation_options]
+    
+    # select the constelation and direction corresponding to the best constellation
+    choice = np.argmin(badness_metric)
     if debug:
-        # plot ideal
-        ax = plot_my_stars(canvas)
-        ax.plot(start_x, start_y, marker='x', c='r')
-        plot_letter_angle(letter, ax, cur_start_point, cur_direction)
+        print(f"chose the {choice} index option (angle {degrees_to_check[choice]})")
+    best_constellation, _ = constelation_options[choice]
+    direction = directions[choice]
+    start_point = start_points[choice]
 
-        # plot circles around ideal points
-        for node in convert_letter_to_sky(letter, cur_start_point, cur_direction):
-            x,y=node
-            circle = plt.Circle((x, y), okay_radius, alpha=0.2)
-            ax.add_patch(circle)
-
-    chosen_stars = []
-    chosen_stars_distances = []
-
-    # find the brightest star in the circle
-    for x,y in convert_letter_to_sky(letter, cur_start_point, cur_direction):
-        query_result = lookup.query_ball_point([x, y], okay_radius)
-
-        if len(query_result)==0: # take the closest star as the only option
-            _, nearest_point = lookup.query([x, y])
-            query_result=[nearest_point]
-
-        # find all the distances from that point
-        near_stars = [canvas[i] for i in query_result]
-        magnitudes = [star.mag for star in near_stars]
-        distances = [calc_distance(Point(x,y,0), star) for star in near_stars]
-        chosen_star_idx=np.argmax(magnitudes)
-
-        # take the maximum magnitude
-        chosen_star = canvas[query_result[chosen_star_idx]]
-        distance = distances[chosen_star_idx]
-        chosen_stars.append(chosen_star)
-        chosen_stars_distances.append(distance)
-
-        if debug: # plot brightest star within radius
-            ax.plot(chosen_star.x, chosen_star.y, c='r', marker='o')
-
-    brightest_constelation = np.array([[p.x, p.y] for p in chosen_stars])
-    x, y = brightest_constelation.T
+    best_constellation = np.array([[p.x, p.y] for p in best_constellation])
+    x, y = best_constellation.T
     if debug:
         # plot the brightest setup of lines
         ax.plot(x,y)
 
-    # find the direction to pass to the next letter
-    final_x = max(x)
-    final_y = min(y)
-    direction = [final_x-start_x, final_y-start_y]
-    direction = direction / np.linalg.norm(direction)
-    return [final_x, final_y], direction, brightest_constelation
+    # find the direction to pass to the next letter, this is the transformed max(x), min(y) point
+    letter_x, letter_y = np.array(letter).T
+    letter_coords_end = [max(letter_x), min(letter_y)]
+    final_pt = convert_letter_node_to_sky(letter_coords_end, start_point, direction)
+    return final_pt, direction, best_constellation
 
 
 #
