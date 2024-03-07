@@ -70,6 +70,10 @@ plot_letter(L, ax, offset_y=floor, offset_x=0.5)
 plot_letter(I, ax, offset_y=floor, offset_x=2.5)
 plot_letter(N, ax, offset_y=floor, offset_x=3.5)
 
+#
+# GLOBAL
+space_between_letters = 0.5 
+okay_radius = 0.3
 
 #
 # prototype function
@@ -78,111 +82,67 @@ canvas = stars
 lookup=KDTree([[p.x, p.y] for p in stars])
 start_point = [0, 1]  # pretend bottom left of the previous letter
 direction=[1,0]         # make sure this is magnitude 1
-space_between_letters = 0.5 
-okay_radius = 0.3
+def plot_letter_smart(letter, canvas, lookup, start_point, direction):
+    start_x, start_y = start_point
 
-start_x, start_y = start_point
+    ax = plot_my_stars(canvas)
+    ax.plot(start_x, start_y, marker='x', c='r')
+    # plot target loation for letter
+    plot_letter(letter, ax,
+                offset_x=start_x + direction[0]*space_between_letters,
+                offset_y=start_y + direction[1]*space_between_letters)
 
-ax = plot_my_stars(canvas)
-ax.plot(start_x, start_y, marker='x', c='r')
-# plot target loation for letter
-plot_letter(letter, ax,
-             offset_x=start_x + direction[0]*space_between_letters,
-               offset_y=start_y + direction[1]*space_between_letters)
+    # plot circles
+    for node in letter:
+        x, y = node
+        curx, cury = x + start_x + space_between_letters, y + start_y
+        circle = plt.Circle((curx, cury), okay_radius, alpha=0.2)
+        ax.add_patch(circle)
 
-# plot circles
-for node in letter:
-    x, y = node
-    curx, cury = x + start_x + space_between_letters, y + start_y
-    circle = plt.Circle((curx, cury), okay_radius, alpha=0.2)
-    ax.add_patch(circle)
+    brightest_neighbours=  []
 
-brightest_neighbours=  []
+    # find the brightest star in the circle
+    for node in letter:
+        x, y = node
+        curx, cury = x + start_x + space_between_letters, y + start_y
+        query_result = lookup.query_ball_point([curx, cury], okay_radius)
 
-# find the brightest star in the circle
-for node in letter:
-    x, y = node
-    curx, cury = x + start_x + space_between_letters, y + start_y
-    query_result = lookup.query_ball_point([curx, cury], okay_radius)
+        brightest_mag = 7
+        brightest_mag_index=None
+        if len(query_result) == 0:
+            print("AAAA no stars within radius")
+        else:
+            for index in query_result:
+                if canvas[index].mag < brightest_mag:
+                    brightest_mag_index=index
 
-    stars_within_radius=[]
-    brightest_mag = 7
-    brightest_mag_index=None
-    if len(query_result) == 0:
-        print("AAAA no stars within radius")
-    else:
-        for index in query_result:
-            if canvas[index].mag < brightest_mag:
-                brightest_mag_index=index
+        brightest_neighbour= canvas[brightest_mag_index]
+        brightest_neighbours.append(brightest_neighbour)
+        ax.plot(brightest_neighbour.x, brightest_neighbour.y, c='r', marker='o')
 
-    brightest_neighbour= canvas[brightest_mag_index]
-    brightest_neighbours.append(brightest_neighbour)
-    ax.plot(brightest_neighbour.x, brightest_neighbour.y, c='r', marker='o')
+    # plot the brightest setup
+    brightest_constelation = np.array([[p.x, p.y] for p in brightest_neighbours])
+    x,y=brightest_constelation.T
+    ax.plot(x,y)
 
-# plot the brightest setup
-brightest_constelation = np.array([[p.x, p.y] for p in brightest_neighbours])
-x,y=brightest_constelation.T
-ax.plot(x,y)
+    # find the direction to pass to the next letter
+    final_x = max(x)
+    final_y = min(y)
+    direction = [final_x-start_x, final_y-start_y]
+    direction = direction / np.linalg.norm(direction)
+    return [final_x, final_y], direction, brightest_constelation
 
-# find the direction to pass to the next letter
-final_x = max(x)
-final_y = min(y)
-direction = [final_x-start_x, final_y-start_y]
-direction = direction / np.linalg.norm(direction)
+my_bright_letters = []
+next_start_point, direction, brightest_constelation= plot_letter_smart(L, stars, lookup, start_point=[0,1], direction=[1,0])
+my_bright_letters.append(brightest_constelation)
+next_start_point, direction, brightest_constelation =plot_letter_smart(I, stars, lookup, next_start_point, direction)
+my_bright_letters.append(brightest_constelation)
+next_start_point, direction, brightest_constelation =plot_letter_smart(N, stars, lookup, next_start_point, direction)
+my_bright_letters.append(brightest_constelation)
 
-# -------------------- between L and I --------------------
 
-#
-# prototype (letter I)
-letter = I
-start_point = [final_x, final_y]  # pretend bottom left of the previous letter
-start_x, start_y = start_point
-
-ax = plot_my_stars(canvas)
-ax.plot(start_x, start_y, marker='x', c='r')
-# plot target loation for letter
-plot_letter(letter, ax,
-             offset_x=start_x + direction[0]*space_between_letters,
-               offset_y=start_y + direction[1]*space_between_letters)
-
-# plot circles
-for node in letter:
-    x, y = node
-    curx, cury = x + start_x + space_between_letters, y + start_y
-    circle = plt.Circle((curx, cury), okay_radius, alpha=0.2)
-    ax.add_patch(circle)
-
-brightest_neighbours=  []
-
-# find the brightest star in the circle
-for node in letter:
-    x, y = node
-    curx, cury = x + start_x + space_between_letters, y + start_y
-    query_result = lookup.query_ball_point([curx, cury], okay_radius)
-
-    stars_within_radius=[]
-    brightest_mag = 7
-    brightest_mag_index=None
-    if len(query_result) == 0:
-        print("AAAA no stars within radius")
-    else:
-        for index in query_result:
-            if canvas[index].mag < brightest_mag:
-                brightest_mag_index=index
-
-    brightest_neighbour= canvas[brightest_mag_index]
-    brightest_neighbours.append(brightest_neighbour)
-    ax.plot(brightest_neighbour.x, brightest_neighbour.y, c='r', marker='o')
-
-# plot the brightest setup
-brightest_constelation = np.array([[p.x, p.y] for p in brightest_neighbours])
-x,y=brightest_constelation.T
-ax.plot(x,y)
-
-# find the direction to pass to the next letter
-final_x = max(x)
-final_y = min(y)
-direction = [final_x-start_x, final_y-start_y]
-start_x, start_y = start_point
-
-# -------------------- between I and N --------------------
+ax=plot_my_stars()
+for constelation in my_bright_letters:
+    x,y=constelation.T
+    ax.plot(x,y,c='r')
+plt.show()
