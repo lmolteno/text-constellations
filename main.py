@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from scipy.spatial import KDTree
 from scipy.stats import halfnorm
 
-canvas_x = 6
+canvas_x = 12
 canvas_y = 3
 n_points = 200
 
@@ -57,6 +57,8 @@ letters = ['L', 'I', "N"]
 L = [[0, 1], [0, 0], [1, 0]]
 I = [[0, 1], [0, 0]]
 N = [[0, 0], [0, 1], [1, 0], [1, 1]]
+U = [ [0, 1], [0,0], [1,0], [1,1] ]
+S = [ [1,1], [0,0.7], [1, 0.3], [0.5, 0], [0, 0.1] ]
 
 
 def plot_letter(letter, ax, offset_x=0, offset_y=0):
@@ -112,7 +114,10 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction,debug=False
         brightest_mag = 7
         brightest_mag_index=None
         if len(query_result) == 0:
-            print("AAAA no stars within radius")
+            _,nearest_point = lookup.query([curx,cury])
+            brightest_mag_index=nearest_point
+            if debug:
+                print("no stars within radius, using potentially distant star")
         else:
             for index in query_result:
                 if canvas[index].mag < brightest_mag:
@@ -139,7 +144,7 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction,debug=False
     return [final_x, final_y], direction, brightest_constelation
 
 
-debug=False
+debug=True
 
 my_bright_letters = []
 next_start_point, direction, brightest_constelation= plot_letter_smart(L, stars, lookup, start_point=[0,1], direction=[1,0],debug=debug)
@@ -148,8 +153,12 @@ next_start_point, direction, brightest_constelation =plot_letter_smart(I, stars,
 my_bright_letters.append(brightest_constelation)
 next_start_point, direction, brightest_constelation =plot_letter_smart(N, stars, lookup, next_start_point, direction,debug=debug)
 my_bright_letters.append(brightest_constelation)
+next_start_point, direction, brightest_constelation =plot_letter_smart(U, stars, lookup, next_start_point, direction,debug=debug)
+my_bright_letters.append(brightest_constelation)
+next_start_point, direction, brightest_constelation =plot_letter_smart(S, stars, lookup, next_start_point, direction,debug=debug)
+my_bright_letters.append(brightest_constelation)
 
-
+# plot the brightest sequence of letters
 ax=plot_my_stars()
 for constelation in my_bright_letters:
     x,y=constelation.T
