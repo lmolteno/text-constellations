@@ -82,29 +82,31 @@ canvas = stars
 lookup=KDTree([[p.x, p.y] for p in stars])
 start_point = [0, 1]  # pretend bottom left of the previous letter
 direction=[1,0]         # make sure this is magnitude 1
-def plot_letter_smart(letter, canvas, lookup, start_point, direction):
+
+def plot_letter_smart(letter, canvas, lookup, start_point, direction,debug=False):
     start_x, start_y = start_point
 
-    ax = plot_my_stars(canvas)
-    ax.plot(start_x, start_y, marker='x', c='r')
-    # plot target loation for letter
-    plot_letter(letter, ax,
-                offset_x=start_x + direction[0]*space_between_letters,
-                offset_y=start_y + direction[1]*space_between_letters)
+    if debug:
+        # plot ideal
+        ax = plot_my_stars(canvas)
+        ax.plot(start_x, start_y, marker='x', c='r')
+        plot_letter(letter, ax,
+                    offset_x=start_x + direction[0]*space_between_letters,
+                    offset_y=start_y + direction[1]*space_between_letters)
 
-    # plot circles
-    for node in letter:
-        x, y = node
-        curx, cury = x + start_x + space_between_letters, y + start_y
-        circle = plt.Circle((curx, cury), okay_radius, alpha=0.2)
-        ax.add_patch(circle)
+        # plot circles around ideal points
+        for node in letter:
+            x, y = node
+            curx, cury = x + start_x + space_between_letters*direction[0], y + start_y + space_between_letters*direction[1]
+            circle = plt.Circle((curx, cury), okay_radius, alpha=0.2)
+            ax.add_patch(circle)
 
     brightest_neighbours=  []
 
     # find the brightest star in the circle
     for node in letter:
         x, y = node
-        curx, cury = x + start_x + space_between_letters, y + start_y
+        curx, cury = x + start_x + space_between_letters*direction[0], y + start_y + space_between_letters*direction[1]
         query_result = lookup.query_ball_point([curx, cury], okay_radius)
 
         brightest_mag = 7
@@ -118,12 +120,16 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction):
 
         brightest_neighbour= canvas[brightest_mag_index]
         brightest_neighbours.append(brightest_neighbour)
-        ax.plot(brightest_neighbour.x, brightest_neighbour.y, c='r', marker='o')
+        
+        if debug:
+            # plot brightest star within radius
+            ax.plot(brightest_neighbour.x, brightest_neighbour.y, c='r', marker='o')
 
-    # plot the brightest setup
     brightest_constelation = np.array([[p.x, p.y] for p in brightest_neighbours])
     x,y=brightest_constelation.T
-    ax.plot(x,y)
+    if debug:
+        # plot the brightest setup of lines
+        ax.plot(x,y)
 
     # find the direction to pass to the next letter
     final_x = max(x)
@@ -132,12 +138,15 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction):
     direction = direction / np.linalg.norm(direction)
     return [final_x, final_y], direction, brightest_constelation
 
+
+debug=False
+
 my_bright_letters = []
-next_start_point, direction, brightest_constelation= plot_letter_smart(L, stars, lookup, start_point=[0,1], direction=[1,0])
+next_start_point, direction, brightest_constelation= plot_letter_smart(L, stars, lookup, start_point=[0,1], direction=[1,0],debug=debug)
 my_bright_letters.append(brightest_constelation)
-next_start_point, direction, brightest_constelation =plot_letter_smart(I, stars, lookup, next_start_point, direction)
+next_start_point, direction, brightest_constelation =plot_letter_smart(I, stars, lookup, next_start_point, direction,debug=debug)
 my_bright_letters.append(brightest_constelation)
-next_start_point, direction, brightest_constelation =plot_letter_smart(N, stars, lookup, next_start_point, direction)
+next_start_point, direction, brightest_constelation =plot_letter_smart(N, stars, lookup, next_start_point, direction,debug=debug)
 my_bright_letters.append(brightest_constelation)
 
 
