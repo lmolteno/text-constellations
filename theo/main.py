@@ -6,9 +6,9 @@ from scipy.spatial import KDTree
 import math
 from scipy.stats import halfnorm
 
-canvas_x = 12
-canvas_y = 6
-n_points = 1000
+canvas_x = 20
+canvas_y = 12
+n_points = 1500
 
 mags = [x for x in (8 - np.exp(halfnorm.rvs(size=10000) / 1.5)) if x > -5]
 
@@ -22,7 +22,7 @@ class Point:
     def plot(self, ax):
         min_star_size = 0.5
         ax.scatter([self.x], [self.y], s=[
-                   (7+min_star_size-(self.mag))*5], c='blue')
+                   (7+min_star_size-(self.mag))*5], c='blue', alpha=0.3)
 
 
 def gen_pt() -> Point:
@@ -56,6 +56,13 @@ I = [[0, 1], [0, 0]]
 N = [[0, 0], [0, 1], [1, 0], [1, 1]]
 U = [[0, 1], [0, 0], [1, 0], [1, 1]]
 S = [[1, 1], [0, 0.7], [1, 0.3], [0.5, 0], [0, 0.1]]
+
+underscore = [[0,0.5], [1,0.5], [0.5, 0.5], [0.5, 1], [0.5, 0]]
+
+T = [[0, 1], [1, 1], [0.5, 1], [0.5, 0]]
+H = [[0,1 ], [0,0], [0.5, 0.7], [1, 0]]
+E = [[1, 1], [0, 1], [0, 0.5], [0.5,0.5], [0, 0.5], [0,0], [1,0]]
+O = [[1,1], [0, 1], [0, 0], [1, 0], [1, 1]]
 
 def get_angle_from_x_axis(vector):
     """Calculates the angle between a vector and the x-axis.
@@ -205,42 +212,71 @@ def plot_letter_smart(letter, canvas, lookup, start_point, direction, debug=Fals
 #
 # GLOBAL vars
 space_between_letters = 0.5
-debug = True
+debug = False
 okay_radius = 0.3
 
-stars = [gen_pt() for _ in range(n_points)]
-canvas=stars
-lookup = KDTree([[p.x, p.y] for p in stars])
-start_point = [0, 2.5]  # pretend bottom left of the previous letter
-direction = [1, 0]         # make sure this is magnitude 1
 
-my_bright_letters = []
-next_start_point, direction, brightest_constelation = plot_letter_smart(
-    L, stars, lookup, start_point=start_point, direction=direction, debug=debug)
-my_bright_letters.append(brightest_constelation)
+picspath = "pics/"
+if not os.path.exists(picspath):
+    os.mkdir(picspath)
 
-next_start_point, direction, brightest_constelation = plot_letter_smart(
-    I, stars, lookup, next_start_point, direction, debug=debug)
-my_bright_letters.append(brightest_constelation)
+for i in range(15):
 
-next_start_point, direction, brightest_constelation = plot_letter_smart(
-    N, stars, lookup, next_start_point, direction, debug=debug)
-my_bright_letters.append(brightest_constelation)
+    stars = [gen_pt() for _ in range(n_points)]
+    canvas=stars
+    lookup = KDTree([[p.x, p.y] for p in stars])
+    start_point = [0, 6]  # pretend bottom left of the previous letter
+    direction = [1, 0]         # make sure this is magnitude 1
 
-next_start_point, direction, brightest_constelation = plot_letter_smart(
-    U, stars, lookup, next_start_point, direction, debug=debug)
-my_bright_letters.append(brightest_constelation)
+    my_bright_letters = []
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        L, stars, lookup, start_point=start_point, direction=direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
 
-next_start_point, direction, brightest_constelation = plot_letter_smart(
-    S, stars, lookup, next_start_point, direction, debug=debug)
-my_bright_letters.append(brightest_constelation)
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        I, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        N, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        U, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        S, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        underscore, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        T, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        H, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        E, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
+
+    next_start_point, direction, brightest_constelation = plot_letter_smart(
+        O, stars, lookup, next_start_point, direction, debug=debug)
+    my_bright_letters.append(brightest_constelation)
 
 
-# plot the brightest sequence of letters
-fig, ax = plt.subplots()
-ax = plot_my_stars(stars, ax=ax)
-for constelation in my_bright_letters:
-    x, y = constelation.T
-    ax.plot(x, y, c='r')
+    # plot the brightest sequence of letters
+    fig, ax = plt.subplots()
+    ax = plot_my_stars(stars, ax=ax)
+    for constelation in my_bright_letters:
+        x, y = constelation.T
+        ax.plot(x, y, c='r')
 
-plt.show()
+    fig.savefig(f"{picspath}/v002linus_iter{i}.png")
+    plt.show()
