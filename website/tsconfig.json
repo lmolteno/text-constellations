@@ -17,10 +17,10 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "paths": {
+      "*": ["./src/types/*.d.ts"]
+    }
   },
-  "include": ["src"],
-  "paths": {
-    "*": ["types/*.d.ts"]
-  }
+  "include": ["src"]
 }

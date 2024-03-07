@@ -1,5 +1,5 @@
 import { Deck } from '@deck.gl/core/typed';
-import { ScatterplotLayer, SolidPolygonLayer, PathLayer } from '@deck.gl/layers/typed';
+import { ScatterplotLayer, SolidPolygonLayer } from '@deck.gl/layers/typed';
 import { AnimatedPathLayer } from './animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
@@ -63,7 +63,7 @@ const deck = new Deck({
   views: view
 });
 
-fetch('/hipparcos.json')
+fetch('hipparcos.json')
   .then(r => r.json())
   .then(d => {
     data = d.data
@@ -117,7 +117,7 @@ fetch('/hipparcos.json')
         getPosition: d => [d.RAICRS, -d.DEICRS]
       });
 
-      let lines = getLines(data, getNearest, vpObj, vs.zoom)
+      let lines = getLines(getNearest, vpObj, vs.zoom)
       let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
 
       let progress = 0;

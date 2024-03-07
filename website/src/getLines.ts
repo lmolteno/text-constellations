@@ -1,4 +1,4 @@
-import { add, angleFromXAxis, distanceBetweenPoints, rotateAround, divide, magnitude, multiply } from "./utils/vector";
+import { add, angleFromXAxis, rotateAround, divide, magnitude, multiply } from "./utils/vector";
 
 const L: Coord[] = [[0, 1], [0, 0], [1, 0]];
 const I: Coord[] = [[0, 1], [0, 0]];
@@ -17,7 +17,7 @@ const distanceBetweenLetters = 1;
 const okayRadius = 0.3;
 const ORIGIN: Coord = [0, 0];
 
-export const getLines = (data: HipparcosEntry[], getNearest: nearestFunction, vpObj: partialHipparcos, zoom: number): { path: Coord[]; }[] => {
+export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, zoom: number): { path: Coord[]; }[] => {
   const pixelScale = Math.pow(2, (zoom + 8));
   const unit = 5000 / pixelScale;
 
