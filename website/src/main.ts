@@ -7,6 +7,12 @@ import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle';
 import { getLines } from './getLines.ts'; 
 
+import * as arrayAt from 'array.prototype.at';
+import * as stringAt from 'string.prototype.at';
+
+if (!Array.prototype.at) arrayAt.shim();
+if (!String.prototype.at) stringAt.shim();
+
 function haversineDistance(coords1: { RAICRS: number, DEICRS: number }, coords2: { RAICRS: number, DEICRS: number }) {
   function toRad(x: number) {
     return x * Math.PI / 180;
@@ -76,9 +82,9 @@ fetch('hipparcos.json')
 
     const index = new kdTree(data, haversineDistance, ['RAICRS', 'DEICRS']);
 
-    const getNearest = (toPoint: Pick<HipparcosEntry, 'RAICRS' | 'DEICRS'>, count: number): [HipparcosEntry, number][] => {
+    const getNearest = (toPoint: Pick<HipparcosEntry, 'RAICRS' | 'DEICRS'>, count: number, maxDistance?: number): [HipparcosEntry, number][] => {
       // @ts-ignore
-      return index.nearest(toPoint, count);
+      return index.nearest(toPoint, count, maxDistance);
     }
 
     let starLayer = new ScatterplotLayer<HipparcosEntry>({
@@ -105,9 +111,6 @@ fetch('hipparcos.json')
       }
       previousNearest = nearestStar.HIP;
 
-      // const pixelScale = Math.pow(2, (vs.zoom + 8));
-      // const unit = 3000 / pixelScale;
-
       const selectedStarLayer = new ScatterplotLayer<HipparcosEntry>({ 
         id: 'selected-star',
         data: nearestStar ? [nearestStar] : [], 
@@ -125,7 +128,6 @@ fetch('hipparcos.json')
       intervalId = +setInterval(() => {
         progress += 2;
         if (intervalId && (progress >= totalPoints * 3 * 4)) {
-          console.log('cancelling', progress)
           clearInterval(intervalId);
           return;
         }
@@ -143,19 +145,33 @@ fetch('hipparcos.json')
           layers: [
             backgroundLayer, 
             lineLayer,
-            selectedStarLayer, 
+            // selectedStarLayer, 
             starLayer
           ]
         });
        }, 10)
     }, 50);
 
+    let latestViewState = INITIAL_VIEW_STATE;
+    let wasInTransition = false;
+
     drawName(INITIAL_VIEW_STATE);
     deck.setProps({
+      onInteractionStateChange: (is) => {
+        if (is.inTransition) {
+          wasInTransition = true;
+        } else if (wasInTransition) {
+          drawName(latestViewState);
+          wasInTransition = false;
+        }
+      },
       onViewStateChange: (vs) => {
-        if ('zoom' in vs.viewState) {
+        // @ts-ignore
+        latestViewState = vs.viewState;
+        if ('zoom' in vs.viewState && !vs.interactionState.inTransition) {
+          // console.log(vs.interactionState)
           // @ts-ignore
-          drawName(vs.viewState);
+          // drawName(vs.viewState);
         }
       },
       layers: [backgroundLayer, starLayer],

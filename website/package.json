@@ -15,10 +15,12 @@
     "vite": "^5.1.4"
   },
   "dependencies": {
+    "array.prototype.at": "^1.1.2",
     "deck.gl": "^8.9.35",
     "kd-tree-javascript": "^1.0.3",
     "lodash.debounce": "^4.0.8",
-    "lodash.throttle": "^4.1.1"
+    "lodash.throttle": "^4.1.1",
+    "string.prototype.at": "^1.0.5"
   },
   "packageManager": "yarn@4.1.1"
 }
