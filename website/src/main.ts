@@ -7,7 +7,7 @@ import GL from '@luma.gl/constants';
 import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle';
 import turfCircle from '@turf/circle';
-import { getLines } from './getLines.ts'; 
+import { normalizePath, getLines, toCoords, toScreen } from './getLines.ts'; 
 import { point } from '@turf/helpers';
 
 // @ts-ignore
@@ -46,7 +46,6 @@ const INITIAL_VIEW_STATE = {
   zoom: 1
 };
 
-const view = new GlobeView({id: 'globe', resolution: 1 });
 let data: HipparcosEntry[] = [];
 const backgroundLayer = new SolidPolygonLayer({
   id: 'background',
@@ -59,8 +58,12 @@ const backgroundLayer = new SolidPolygonLayer({
   material: false,
   opacity: 1,
   visible: true,
-  getFillColor: [20, 20, 20, 255],
+  getFillColor: [5, 15, 40, 255]
 });
+
+
+const view = new GlobeView({id: 'globe', resolution: 1 });
+
 
 const deck = new Deck({
   canvas: 'deck-canvas',
@@ -68,10 +71,9 @@ const deck = new Deck({
   controller: { inertia: 1000 },
   getCursor: () => 'none',
   parameters: {
-    cull: true,
     clearColor: [0, 0, 0, 255],
+    cull: true
   },
-  layers: [backgroundLayer],
   views: view
 });
 
@@ -105,77 +107,52 @@ fetch('hipparcos.json')
       getPosition: d => [d.coords[0], -d.coords[1]],
     });
 
-     let selectedStarLayer = new ScatterplotLayer<HipparcosEntry>({ 
-       id: 'selected-star',
-       data: [], 
-       getFillColor: [212, 121, 203, 255],
-       getRadius: 10,
-       radiusUnits: 'pixels',
-       stroked: false,
-       visible: false,
-       getPosition: d => [d.RAICRS, -d.DEICRS]
-     });
-
-    let intervalId: number | null = null;
-    let previousNearest: number | null = null;
-
-    let lineLayer = new AnimatedPathLayer<{ path: Coord[] }>({});
+    let actualConstellationLayers: Layer[] = [];
+    let constellationLayers: Layer[] = [];
     let cursorLayers: Layer[] = [];
 
     const redraw = () => {
         deck.setProps({
           layers: [
-            backgroundLayer, 
-            lineLayer,
-            selectedStarLayer, 
+            backgroundLayer,
+            ...actualConstellationLayers,
+            ...constellationLayers,
             starLayer,
             ...cursorLayers
           ]
         });
     };
 
+    let intervalId: number | null = null;
     const drawName = throttle((vs: { zoom: number, latitude: number, longitude: number }) => {
       const vpObj = { RAICRS: vs.longitude < 0 ? 360 + vs.longitude : vs.longitude, DEICRS: -vs.latitude } ;
-      const nearestStar = getNearest(vpObj, 1)?.[0]?.[0];
-      if (!nearestStar || nearestStar.HIP === previousNearest) {
-        return;
-      }
       if (intervalId) {
         clearInterval(intervalId);
       }
-      previousNearest = nearestStar.HIP;
-
-      selectedStarLayer = new ScatterplotLayer<HipparcosEntry>({ 
-        id: 'selected-star',
-        data: nearestStar ? [nearestStar] : [], 
-        getFillColor: [212, 121, 203, 255],
-        getRadius: 10,
-        radiusUnits: 'pixels',
-        stroked: false,
-        visible: false,
-        getPosition: d => [d.RAICRS, -d.DEICRS]
-      });
 
       let lines = getLines(getNearest, vpObj, vs.zoom)
       let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
 
       let progress = 0;
       intervalId = +setInterval(() => {
-        progress += 2;
+        progress += 4;
         if (intervalId && (progress >= totalPoints * 3 * 4)) {
           clearInterval(intervalId);
           return;
         }
-        lineLayer = new AnimatedPathLayer({ 
+        constellationLayers = [
+          // @ts-ignore
+          new AnimatedPathLayer({
               id: 'selected-star-line',
               data: lines, 
               getWidth: 6,
               jointRounded: true,
               capRounded: true,
               widthUnits: 'pixels',
-              getColor: [255, 255, 255, 200],
+              getColor: [255, 255, 255, 255],
               coef: progress,
-            });
+            }) as Layer
+        ];
         redraw();
        }, 10)
     }, 50);
@@ -220,6 +197,7 @@ fetch('hipparcos.json')
         ];
         redraw();
     }
+
     let wasInTransition = false;
 
     drawName(INITIAL_VIEW_STATE);
@@ -234,7 +212,7 @@ fetch('hipparcos.json')
     });
     deck.setProps({
       onDragEnd: () => {
-        drawName(latestViewState);
+        setTimeout( () => drawName(latestViewState), 768);
       },
       onHover: (info) => {
         if (info.coordinate) {
@@ -243,19 +221,55 @@ fetch('hipparcos.json')
         }
       },
       onInteractionStateChange: (is) => {
-        if (is.inTransition) {
+        console.log(is)
+        if (is.inTransition || is.isZooming) {
           wasInTransition = true;
         } else if (wasInTransition) {
-          drawName(latestViewState);
           wasInTransition = false;
         }
       },
       onViewStateChange: (vs) => {
         // @ts-ignore
         latestViewState = vs.viewState;
+        if (vs.viewState?.zoom > 2 || vs.viewState?.zoom < 0.5) {
+          return vs.oldViewState;
+        }
         updateCursor();
       },
-      layers: [backgroundLayer, starLayer],
-    })
+      layers: [
+        backgroundLayer,
+        starLayer
+      ],
+    });
+
+    fetch('constellations.json')
+      .then(r => r.json())
+      .then((constellations: Record<string, number[][]>) => {
+        const constellationsWithStars = Object.fromEntries(
+          Object.entries(constellations)
+            .map(([k, starPaths]) => 
+              [k, starPaths.map(stars => stars.flatMap(s => {
+                const matchingStar = data.find(d => d.HIP === s);
+                if (!matchingStar) {
+                  return [];
+                }
+                return [toScreen(toCoords(matchingStar))];
+              }))]
+            )
+        );
+        const paths = Object.values(constellationsWithStars).flat().flatMap(normalizePath);
+        console.log(paths);
+        actualConstellationLayers = [
+          new PathLayer({
+            id: 'constellations-actual',
+            data: paths,
+            getPath: d => d,
+            getWidth: 1,
+            widthMinPixels: 1,
+            getColor: [255, 255, 255, 255]
+          })
+        ]
+        
+      })
   });
 

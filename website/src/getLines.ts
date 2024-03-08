@@ -9,8 +9,8 @@ const S: Coord[] = [ [1,1], [0,0.7], [1, 0.3], [0.5, 0], [0, 0.1] ];
 type partialHipparcos = Pick<HipparcosEntry, 'RAICRS' | 'DEICRS'>;
 type nearestFunction = (toPoint: partialHipparcos, count: number, maxDistance?: number) => [HipparcosEntry, number][];
 
-const toCoords = (p: partialHipparcos): Coord => [p.RAICRS, p.DEICRS];
-const toScreen = (c: Coord): Coord => [c[0], -c[1]];
+export const toCoords = (p: partialHipparcos): Coord => [p.RAICRS, p.DEICRS];
+export const toScreen = (c: Coord): Coord => [c[0], -c[1]];
 const toHipparcos = (c: Coord) => ({ RAICRS: c[0], DEICRS: c[1] });
 const toNormalized = (p: partialHipparcos) => ({ 
   RAICRS: p.RAICRS < 0 
@@ -24,7 +24,7 @@ const lerp = (a: number, b: number, alpha: number) => a + alpha * (b - a);
 
 const distToMeridian = (ra: number): number => (ra < 180 ? ra : 360 - ra);
 
-const normalizePath = (coords: Coord[]): Coord[][] => {
+export const normalizePath = (coords: Coord[]): Coord[][] => {
   if (coords.length == 0) {
     return [];
   }
@@ -61,14 +61,14 @@ const normalizePath = (coords: Coord[]): Coord[][] => {
 
 
 const distanceBetweenLetters = 0.5;
-const okayRadius = 0.01;
+const okayRadius = 0.005;
 const ORIGIN: Coord = [0, 0];
 
 const letters = [L, I, N, U, S];
 
 export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, zoom: number): { path: Coord[]; }[] => {
   const pixelScale = Math.pow(2, (zoom + 8));
-  const unit = 5000 / pixelScale;
+  const unit = 3000 / (pixelScale * Math.cos(vpObj.DEICRS * (3.14159265 / 180)));
 
   let startPoint = add(toScreen(toCoords(vpObj)), multiply([-3, -0.5], unit));
   let direction: Coord = [1, 0];
@@ -84,7 +84,7 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
     const starNodes = letter.map(p => {
       const skyCoords = add(startPoint, multiply(rotateAround(ORIGIN, p, angleFromXAxis(ORIGIN, direction)), unit));
       const screenCoords = toNormalized(toHipparcos(toScreen(skyCoords)));
-      let nearbyStars = getNearest(screenCoords, 10, okayRadius * unit)
+      let nearbyStars = getNearest(screenCoords, 5, okayRadius * unit)
         .map(c => c[0])
         .filter(s => !blacklist.includes(s.HIP));
 
