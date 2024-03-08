@@ -11,10 +11,13 @@
     "@types/kd-tree-javascript": "^1",
     "@types/lodash.debounce": "^4",
     "@types/lodash.throttle": "^4",
+    "@types/turf": "^3.5.32",
     "typescript": "^5.2.2",
     "vite": "^5.1.4"
   },
   "dependencies": {
+    "@turf/circle": "^6.5.0",
+    "@turf/turf": "^6.5.0",
     "array.prototype.at": "^1.1.2",
     "deck.gl": "^8.9.35",
     "kd-tree-javascript": "^1.0.3",

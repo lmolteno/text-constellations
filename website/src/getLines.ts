@@ -30,10 +30,6 @@ const normalizePath = (coords: Coord[]): Coord[][] => {
   }
   let polylines: Coord[][] = [];
   coords.forEach((c, i, a) => {
-    if (!polylines.at(-1)?.length) {
-      polylines.push([c]);
-      return;
-    }
     if (i === a.length - 1) {
       polylines.at(-1)?.push(c);
       return;
@@ -43,8 +39,8 @@ const normalizePath = (coords: Coord[]): Coord[][] => {
     if (distance > 180) {
       const meridDist = distToMeridian(c[0]);
       const meetingDec = lerp(c[1], next[1], meridDist / (meridDist + distToMeridian(next[0])))
-      const leftMiddle: Coord = [360, meetingDec];
-      const rightMiddle: Coord = [0, meetingDec];
+      const leftMiddle: Coord = [359.9999, meetingDec];
+      const rightMiddle: Coord = [0.0001, meetingDec];
       if (c[0] > 180) {
         polylines.at(-1)?.push(c, leftMiddle);
         polylines.push([rightMiddle]);
@@ -54,7 +50,11 @@ const normalizePath = (coords: Coord[]): Coord[][] => {
       }
       return;
     }
-    polylines.at(-1)?.push(c);
+    if (!polylines.at(-1)?.length) {
+      polylines.push([c]);
+    } else { 
+      polylines.at(-1)?.push(c);
+    }
   });
   return polylines;
 }
@@ -70,7 +70,7 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
   const pixelScale = Math.pow(2, (zoom + 8));
   const unit = 5000 / pixelScale;
 
-  let startPoint = add(toScreen(toCoords(vpObj)), multiply([-3, -1], unit));
+  let startPoint = add(toScreen(toCoords(vpObj)), multiply([-3, -0.5], unit));
   let direction: Coord = [1, 0];
 
   let blacklist: number[] = [];
@@ -109,10 +109,7 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
 
       if (bestStar) {
         blacklist.push(bestStar.HIP);
-      } else {
-        console.log(nearbyStars)
-        console.log("could not find star");
-      }
+      } 
       trueNodes.push(skyCoords);
 
       return bestStar ? toScreen(toCoords(bestStar)) : skyCoords;
@@ -122,6 +119,5 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
     return normalizePath(starNodes).map(p => ({ path: p }));
   });
 
-  console.log(paths);
   return paths;
 }
