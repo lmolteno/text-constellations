@@ -66,14 +66,14 @@ const ORIGIN: Coord = [0, 0];
 
 const letters = [L, I, N, U, S];
 
-export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, zoom: number): { path: Coord[]; }[] => {
+export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, zoom: number): { paths: { path: Coord[] }[], stars: number[] } => {
   const pixelScale = Math.pow(2, (zoom + 8));
   const unit = 3000 / (pixelScale * Math.cos(vpObj.DEICRS * (3.14159265 / 180)));
 
   let startPoint = add(toScreen(toCoords(vpObj)), multiply([-3, -0.5], unit));
   let direction: Coord = [1, 0];
 
-  let blacklist: number[] = [];
+  let usedStars: number[] = [];
 
   const paths = letters.flatMap(letter => {
     direction = divide(direction, magnitude(direction));
@@ -86,14 +86,13 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
       const screenCoords = toNormalized(toHipparcos(toScreen(skyCoords)));
       let nearbyStars = getNearest(screenCoords, 5, okayRadius * unit)
         .map(c => c[0])
-        .filter(s => !blacklist.includes(s.HIP));
+        .filter(s => !usedStars.includes(s.HIP));
 
       let limit = 1;
       while (nearbyStars.length == 0) {
-        console.log(`finding nearest ${limit}`)
         nearbyStars = getNearest(screenCoords, limit)
           .map(c => c[0])
-          .filter(s => !blacklist.includes(s.HIP));
+          .filter(s => !usedStars.includes(s.HIP));
         limit++;
       }
 
@@ -108,7 +107,7 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
       }, undefined as undefined | HipparcosEntry);
 
       if (bestStar) {
-        blacklist.push(bestStar.HIP);
+        usedStars.push(bestStar.HIP);
       } 
       trueNodes.push(skyCoords);
 
@@ -119,5 +118,5 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
     return normalizePath(starNodes).map(p => ({ path: p }));
   });
 
-  return paths;
+  return { paths: paths, stars: usedStars };
 }

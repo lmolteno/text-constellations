@@ -1,5 +1,6 @@
-import { Deck, Layer } from '@deck.gl/core/typed';
+import { Deck, Layer, _GlobeViewport as GlobeViewport } from '@deck.gl/core/typed';
 import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer, PathLayer } from '@deck.gl/layers/typed';
+import { PathStyleExtension } from '@deck.gl/extensions/typed';
 import { AnimatedPathLayer } from './layers/animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
@@ -98,13 +99,15 @@ fetch('hipparcos.json')
     let starLayer = new ScatterplotLayer<HipparcosEntry>({
       id: 'stars',
       data,
+      parameters: { depthTest: false },
       stroked: false,
       getFillColor: [255, 255, 255, 255],
-      radiusUnits: 'pixels',
+      radiusUnits: 'meters',
       antialiasing: true,
-      opacity: 0.7,
-      getRadius: d => 8 - d.Vmag,
-      getPosition: d => [d.coords[0], -d.coords[1]],
+      opacity: 1,
+      radiusMinPixels: 0.5,
+      getRadius: d => (8 - d.Vmag) * 8e3,
+      getPosition: d => toScreen(d.coords),
     });
 
     let actualConstellationLayers: Layer[] = [];
@@ -130,8 +133,9 @@ fetch('hipparcos.json')
         clearInterval(intervalId);
       }
 
-      let lines = getLines(getNearest, vpObj, vs.zoom)
+      let { paths: lines, stars } = getLines(getNearest, vpObj, vs.zoom)
       let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
+      const usedStars = stars.map(s => data.find(hip => hip.HIP === s)).filter(s => !!s);
 
       let progress = 0;
       intervalId = +setInterval(() => {
@@ -145,13 +149,26 @@ fetch('hipparcos.json')
           new AnimatedPathLayer({
               id: 'selected-star-line',
               data: lines, 
-              getWidth: 6,
+              getWidth: 3,
               jointRounded: true,
               capRounded: true,
               widthUnits: 'pixels',
               getColor: [255, 255, 255, 255],
-              coef: progress,
-            }) as Layer
+              coef: progress
+            }) as Layer,
+          new ScatterplotLayer({
+            id: 'selected-star-dots',
+            data: usedStars, 
+            stroked: true,
+            getLineColor: [255, 255, 255, 255],
+            getLineWidth: 1,
+            lineWidthUnits: 'pixels',
+            getFillColor: [0, 0, 0, 255],
+            radiusUnits: 'meters',
+            radiusMinPixels: 0.5,
+            getRadius: d => (12 - d.Vmag) * 8e3,
+            getPosition: d => toScreen(d.coords),
+          })
         ];
         redraw();
        }, 10)
@@ -159,6 +176,7 @@ fetch('hipparcos.json')
 
     let latestViewState = INITIAL_VIEW_STATE;
     let lastCursorPosition: Coord = [INITIAL_VIEW_STATE.longitude, INITIAL_VIEW_STATE.latitude];
+    let lastCursorScreenPosition: Coord = [0, 0];
     let clicked = false;
 
     const updateCursor = () => {
@@ -198,6 +216,11 @@ fetch('hipparcos.json')
         redraw();
     }
 
+    const updateCursorFromScreenPosition = () => {
+      const viewport = new GlobeViewport(latestViewState);
+      lastCursorPosition = viewport.unproject(lastCursorScreenPosition) as Coord;
+    };
+
     let wasInTransition = false;
 
     drawName(INITIAL_VIEW_STATE);
@@ -210,18 +233,25 @@ fetch('hipparcos.json')
       clicked = false;
       updateCursor();
     });
+    deck.getCanvas()?.addEventListener('mousemove', (ev) => {
+      if (clicked) {
+        lastCursorScreenPosition = [ev.pageX, ev.pageY];
+      }
+    });
     deck.setProps({
-      onDragEnd: () => {
+      onDragEnd: (info) => {
+        lastCursorPosition = info.coordinate as Coord ?? lastCursorPosition;
+        updateCursor();
         setTimeout( () => drawName(latestViewState), 768);
       },
       onHover: (info) => {
         if (info.coordinate) {
           lastCursorPosition = info.coordinate as Coord;
+          lastCursorScreenPosition = info.pixel ?? lastCursorScreenPosition;
           updateCursor();
         }
       },
       onInteractionStateChange: (is) => {
-        console.log(is)
         if (is.inTransition || is.isZooming) {
           wasInTransition = true;
         } else if (wasInTransition) {
@@ -229,12 +259,15 @@ fetch('hipparcos.json')
         }
       },
       onViewStateChange: (vs) => {
-        // @ts-ignore
-        latestViewState = vs.viewState;
         if (vs.viewState?.zoom > 2 || vs.viewState?.zoom < 0.5) {
           return vs.oldViewState;
         }
-        updateCursor();
+        // @ts-ignore
+        latestViewState = vs.viewState;
+        if (!vs.interactionState.isDragging) {
+          updateCursorFromScreenPosition();
+          updateCursor();
+        }
       },
       layers: [
         backgroundLayer,
@@ -258,7 +291,7 @@ fetch('hipparcos.json')
             )
         );
         const paths = Object.values(constellationsWithStars).flat().flatMap(normalizePath);
-        console.log(paths);
+
         actualConstellationLayers = [
           new PathLayer({
             id: 'constellations-actual',
@@ -266,7 +299,9 @@ fetch('hipparcos.json')
             getPath: d => d,
             getWidth: 1,
             widthMinPixels: 1,
-            getColor: [255, 255, 255, 255]
+            getColor: [255, 255, 255, 200],
+            getDashArray: [5, 5],
+            extensions: [new PathStyleExtension({ dash: true, highPrecisionDash: true })]
           })
         ]
         
