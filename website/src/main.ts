@@ -7,7 +7,9 @@ import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle';
 import { getLines } from './getLines.ts'; 
 
+// @ts-ignore
 import * as arrayAt from 'array.prototype.at';
+// @ts-ignore
 import * as stringAt from 'string.prototype.at';
 
 if (!Array.prototype.at) arrayAt.shim();
@@ -118,6 +120,7 @@ fetch('hipparcos.json')
         getRadius: 10,
         radiusUnits: 'pixels',
         stroked: false,
+        visible: false,
         getPosition: d => [d.RAICRS, -d.DEICRS]
       });
 
@@ -145,7 +148,7 @@ fetch('hipparcos.json')
           layers: [
             backgroundLayer, 
             lineLayer,
-            // selectedStarLayer, 
+            selectedStarLayer, 
             starLayer
           ]
         });
