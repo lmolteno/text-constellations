@@ -11,7 +11,7 @@ type nearestFunction = (toPoint: partialHipparcos, count: number, maxDistance?: 
 
 export const toCoords = (p: partialHipparcos): Coord => [p.RAICRS, p.DEICRS];
 export const toScreen = (c: Coord): Coord => [c[0], -c[1]];
-const toHipparcos = (c: Coord) => ({ RAICRS: c[0], DEICRS: c[1] });
+export const toHipparcos = (c: Coord) => ({ RAICRS: c[0], DEICRS: c[1] });
 const toNormalized = (p: partialHipparcos) => ({ 
   RAICRS: p.RAICRS < 0 
     ? p.RAICRS + 360 
@@ -28,7 +28,7 @@ export const normalizePath = (coords: Coord[]): Coord[][] => {
   if (coords.length == 0) {
     return [];
   }
-  let polylines: Coord[][] = [];
+  let polylines: Coord[][] = [[]];
   coords.forEach((c, i, a) => {
     if (i === a.length - 1) {
       polylines.at(-1)?.push(c);
@@ -50,7 +50,7 @@ export const normalizePath = (coords: Coord[]): Coord[][] => {
       }
       return;
     }
-    if (!polylines.at(-1)?.length) {
+    if (!polylines.at(-1)) {
       polylines.push([c]);
     } else { 
       polylines.at(-1)?.push(c);
@@ -58,6 +58,14 @@ export const normalizePath = (coords: Coord[]): Coord[][] => {
   });
   return polylines;
 }
+
+const splitIntoPaths = (coords: Coord[]): Coord[][] => 
+  coords.reduce((p, c, i, a) => {
+    if (i !== a.length - 1) {
+      p.push([c, a[i+1]]);
+    }
+    return p;
+  }, [] as Coord[][]);
 
 
 const distanceBetweenLetters = 0.5;
@@ -115,7 +123,7 @@ export const getLines = (getNearest: nearestFunction, vpObj: partialHipparcos, z
     });
 
     startPoint = add(startPoint, multiply([Math.max(...letter.map(c => c[0])), Math.min(...letter.map(c => c[1]))], unit))
-    return normalizePath(starNodes).map(p => ({ path: p }));
+    return splitIntoPaths(starNodes).flatMap(normalizePath).map(p => ({ path: p }));
   });
 
   return { paths: paths, stars: usedStars };

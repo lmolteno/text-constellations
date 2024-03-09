@@ -1,14 +1,14 @@
 import { Deck, Layer, _GlobeViewport as GlobeViewport } from '@deck.gl/core/typed';
 import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer, PathLayer } from '@deck.gl/layers/typed';
 import { PathStyleExtension } from '@deck.gl/extensions/typed';
-import { AnimatedPathLayer } from './layers/animatedPathLayer.ts';
+import { AnimatedPathLayer, numberOfInstances } from './layers/animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import GL from '@luma.gl/constants';
 import { kdTree } from 'kd-tree-javascript';
 import throttle from 'lodash.throttle';
 import turfCircle from '@turf/circle';
-import { normalizePath, getLines, toCoords, toScreen } from './getLines.ts'; 
+import { normalizePath, getLines, toCoords, toScreen, toHipparcos } from './getLines.ts'; 
 import { point } from '@turf/helpers';
 
 // @ts-ignore
@@ -134,31 +134,39 @@ fetch('hipparcos.json')
       }
 
       let { paths: lines, stars } = getLines(getNearest, vpObj, vs.zoom)
-      let totalPoints = lines.reduce((prev, curr) => prev + curr.path.length, 0);
-      const usedStars = stars.map(s => data.find(hip => hip.HIP === s)).filter(s => !!s);
+      let drawnStars: HipparcosEntry[] = [];
 
       let progress = 0;
       intervalId = +setInterval(() => {
-        progress += 4;
-        if (intervalId && (progress >= totalPoints * 3 * 4)) {
+        progress += 0.1;
+        if (intervalId && (progress > lines.length + 1)) {
           clearInterval(intervalId);
           return;
         }
+        const lineStart = lines.at(Math.floor(progress));
+        const lineEnd = lines.at(Math.max(0, Math.floor(progress) - 1));
+        const starStart = getNearest(toHipparcos(toScreen(lineStart?.path?.at(0) ?? [0,0])), 1, 0.001).map(c => c[0]).at(0);
+        const starEnd = getNearest(toHipparcos(toScreen(lineEnd?.path?.at(1) ?? [0,0])), 1, 0.001).map(c => c[0]).at(0);
+        [starStart, starEnd].forEach(star => {
+          if (star && !drawnStars.find(ds => ds.HIP === star?.HIP)) {
+            drawnStars.push(star);
+          }
+        });
+        const pathLayer = new AnimatedPathLayer({
+            id: 'selected-star-line',
+            data: lines, 
+            getWidth: 3,
+            jointRounded: true,
+            capRounded: true,
+            widthUnits: 'pixels',
+            getColor: [255, 255, 255, 255],
+            coef: progress
+          });
         constellationLayers = [
-          // @ts-ignore
-          new AnimatedPathLayer({
-              id: 'selected-star-line',
-              data: lines, 
-              getWidth: 3,
-              jointRounded: true,
-              capRounded: true,
-              widthUnits: 'pixels',
-              getColor: [255, 255, 255, 255],
-              coef: progress
-            }) as Layer,
+          pathLayer as Layer,
           new ScatterplotLayer({
             id: 'selected-star-dots',
-            data: usedStars, 
+            data: [...drawnStars], 
             stroked: true,
             getLineColor: [255, 255, 255, 255],
             getLineWidth: 1,
@@ -166,12 +174,13 @@ fetch('hipparcos.json')
             getFillColor: [0, 0, 0, 255],
             radiusUnits: 'meters',
             radiusMinPixels: 0.5,
+            parameters: { depthTest: false },
             getRadius: d => (12 - d.Vmag) * 8e3,
             getPosition: d => toScreen(d.coords),
           })
         ];
         redraw();
-       }, 10)
+       }, 10);
     }, 50);
 
     let latestViewState = INITIAL_VIEW_STATE;

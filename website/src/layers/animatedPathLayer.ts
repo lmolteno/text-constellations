@@ -9,6 +9,8 @@ const defaultProps: DefaultProps<ExtendedPathLayerProps<unknown>> = {
     ...PathLayer.defaultProps,
     coef: { type: "number", value: 1 },
 };
+
+export let numberOfInstances = 10;
     
 export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayerProps<DataT>> {
   initializeState() {
@@ -17,10 +19,26 @@ export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayer
       instancePathIndex: {
         size: 1,
         update: (attribute) => {
+          const { pathTesselator } = this.state;
+          const { data, getPath } = this.props;
           const { value } = attribute;
+
+          // @ts-ignore
+          const paths = getPath(data);
           if (value !== null) {
+            numberOfInstances = attribute.numInstances;
+            let vertex = 0;
+            let startInstance = pathTesselator.vertexStarts[0];
+            let endInstance = pathTesselator.vertexStarts[1];
             for (let i = 0; i < attribute.numInstances; i++) {
-              value[i] = i;
+              const index = pathTesselator.vertexStarts.indexOf(i);
+
+              if (index > 0) {
+                vertex++;
+                startInstance = i;
+                endInstance = pathTesselator.vertexStarts[index + 1];
+              }
+              value[i] = vertex + ((i - startInstance) / (endInstance - startInstance));
             }
           }
         }
@@ -35,14 +53,17 @@ export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayer
             attribute float instancePathIndex;
             uniform float coef;
             varying float adjustedCoef;
+            varying float widthInPixels;
             `,
             "fs:#decl": `
             varying float adjustedCoef;
+            varying float widthInPixels;
             `,
             "vs:#main-end": `
             adjustedCoef = clamp(coef - instancePathIndex, 0.0, 1.0);
+            widthInPixels = instanceStrokeWidths;
             `,
-            "fs:DECKGL_FILTER_COLOR": `
+            "fs:#main-end": `
             if (adjustedCoef == 0.0) {
               discard;
             }
@@ -50,8 +71,8 @@ export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayer
             if (adjustedCoef > 0.05) {
                 lowerBound = adjustedCoef - 0.05;
             }
-            if (adjustedCoef != 1.0 ) {
-                color.a = 1.0 - smoothstep(lowerBound, adjustedCoef, geometry.uv.y);
+            if (adjustedCoef != 1.0) {
+                gl_FragColor.a = 1.0 - smoothstep(lowerBound, adjustedCoef, geometry.uv.y);
             }
             `,
         };
