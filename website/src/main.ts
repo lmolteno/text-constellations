@@ -1,7 +1,7 @@
 import { Deck, Layer, _GlobeViewport as GlobeViewport } from '@deck.gl/core/typed';
 import { ScatterplotLayer, SolidPolygonLayer, PolygonLayer, PathLayer } from '@deck.gl/layers/typed';
 import { PathStyleExtension } from '@deck.gl/extensions/typed';
-import { AnimatedPathLayer, numberOfInstances } from './layers/animatedPathLayer.ts';
+import { AnimatedPathLayer } from './layers/animatedPathLayer.ts';
 import {_GlobeView as GlobeView} from '@deck.gl/core/typed';
 import './style.css';
 import GL from '@luma.gl/constants';
@@ -133,12 +133,12 @@ fetch('hipparcos.json')
         clearInterval(intervalId);
       }
 
-      let { paths: lines, stars } = getLines(getNearest, vpObj, vs.zoom)
+      let { paths: lines } = getLines(getNearest, vpObj, vs.zoom)
       let drawnStars: HipparcosEntry[] = [];
 
       let progress = 0;
       intervalId = +setInterval(() => {
-        progress += 0.1;
+        progress += 0.3;
         if (intervalId && (progress > lines.length + 1)) {
           clearInterval(intervalId);
           return;

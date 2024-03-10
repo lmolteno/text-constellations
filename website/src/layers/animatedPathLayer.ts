@@ -10,8 +10,6 @@ const defaultProps: DefaultProps<ExtendedPathLayerProps<unknown>> = {
     coef: { type: "number", value: 1 },
 };
 
-export let numberOfInstances = 10;
-    
 export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayerProps<DataT>> {
   initializeState() {
     super.initializeState();
@@ -26,7 +24,6 @@ export class AnimatedPathLayer<DataT> extends PathLayer<DataT, ExtendedPathLayer
           // @ts-ignore
           const paths = getPath(data);
           if (value !== null) {
-            numberOfInstances = attribute.numInstances;
             let vertex = 0;
             let startInstance = pathTesselator.vertexStarts[0];
             let endInstance = pathTesselator.vertexStarts[1];
